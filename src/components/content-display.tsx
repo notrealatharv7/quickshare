@@ -1,7 +1,7 @@
 'use client';
 
 import { Download, FileText } from 'lucide-react';
-import type { SharedContent } from '@/lib/storage';
+import type { SharedContent } from '@/lib/database';
 import { Button } from './ui/button';
 import { CodeBlock } from './code-block';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';

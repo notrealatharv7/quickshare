@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {nanoid} from 'nanoid';
-import type {SharedContent} from '@/lib/storage';
+import type {SharedContent} from '@/lib/database';
 
 const CreateRealtimeSessionInputSchema = z.object({
   sessionId: z.string().optional().describe('The ID of the session to create or join.'),

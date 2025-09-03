@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ContentDisplay } from './content-display';
-import type { SharedContent } from '@/lib/storage';
+import type { SharedContent } from '@/lib/database';
 
 interface ReceiveResult {
   data?: SharedContent;

@@ -1,13 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getContent, setContent, type SharedContent } from '@/lib/storage';
-import { randomBytes } from 'crypto';
-import {nanoid} from 'nanoid';
+import { storageProvider, type SharedContent } from '@/lib/database';
 
 interface SendState {
   id?: string;
   error?: string;
+  isRealtime?: boolean;
 }
 
 const sessionStore = new Map<
@@ -51,8 +50,7 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
     }
 
 
-    const id = nanoid(8);
-    setContent(id, contentToStore);
+    const id = await storageProvider.setContent(contentToStore);
 
     revalidatePath('/');
     return { id };
@@ -71,7 +69,7 @@ export async function receiveContent(id: string): Promise<ReceiveResult> {
     return { error: 'Invalid ID format.' };
   }
   try {
-    const data = getContent(id.trim());
+    const data = await storageProvider.getContent(id.trim());
 
     if (!data) {
       // Check realtime sessions
