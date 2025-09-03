@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition, type DragEvent, useRef, useEffect } from 'react';
-import { useFormState } from 'react-dom';
+import { useState, useTransition, type DragEvent, useRef, useEffect, useActionState } from 'react';
 import { Copy, Loader2, Send, UploadCloud, X, Wifi } from 'lucide-react';
 import { sendContent } from '@/app/actions';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,7 @@ import { Label } from './ui/label';
 const initialState = {};
 
 export function SendForm() {
-  const [formState, formAction] = useFormState(sendContent, initialState);
+  const [formState, formAction] = useActionState(sendContent, initialState);
   const [isPending, startTransition] = useTransition();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
