@@ -3,16 +3,23 @@
 import { revalidatePath } from 'next/cache';
 import { getContent, setContent, type SharedContent } from '@/lib/storage';
 import { randomBytes } from 'crypto';
+import {nanoid} from 'nanoid';
 
 interface SendState {
   id?: string;
   error?: string;
 }
 
+const sessionStore = new Map<
+  string,
+  {status: 'pending' | 'connected'; content?: SharedContent; expiresAt: number}
+>();
+const EXPIRY_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export async function sendContent(prevState: SendState, formData: FormData): Promise<SendState> {
   const text = formData.get('text') as string;
   const file = formData.get('file') as File;
-  const id = randomBytes(4).toString('hex');
+  const realtimeSessionId = formData.get('realtimeSessionId') as string;
 
   if (!text && file.size === 0) {
     return { error: 'Please provide text, or drop a file to share.' };
@@ -36,6 +43,15 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
       };
     }
 
+    if (realtimeSessionId && sessionStore.has(realtimeSessionId)) {
+        const session = sessionStore.get(realtimeSessionId)!;
+        session.status = 'connected';
+        session.content = contentToStore;
+        return {id: realtimeSessionId, isRealtime: true};
+    }
+
+
+    const id = nanoid(8);
     setContent(id, contentToStore);
 
     revalidatePath('/');
@@ -58,6 +74,19 @@ export async function receiveContent(id: string): Promise<ReceiveResult> {
     const data = getContent(id.trim());
 
     if (!data) {
+      // Check realtime sessions
+        if(sessionStore.has(id.trim())) {
+            const session = sessionStore.get(id.trim())!;
+            if (Date.now() > session.expiresAt) {
+                sessionStore.delete(id.trim());
+                return { error: 'Content not found or has expired.' };
+            }
+            if (session.status === 'connected' && session.content) {
+                return {data: session.content};
+            }
+            return {}; // Still pending
+        }
+
       return { error: 'Content not found or has expired.' };
     }
 
