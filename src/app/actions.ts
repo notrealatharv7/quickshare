@@ -64,19 +64,22 @@ interface ReceiveResult {
   error?: string;
 }
 
+const NANOID_REGEX = /^[a-zA-Z0-9_-]{8}$/;
+
 export async function receiveContent(id: string): Promise<ReceiveResult> {
-  if (!id || typeof id !== 'string' || id.length < 3) {
-    return { error: 'Invalid ID format.' };
+    const trimmedId = id.trim();
+  if (!trimmedId || typeof trimmedId !== 'string' || !NANOID_REGEX.test(trimmedId)) {
+    return { error: 'Invalid ID format. Please enter a valid 8-character ID.' };
   }
   try {
-    const data = await storageProvider.getContent(id.trim());
+    const data = await storageProvider.getContent(trimmedId);
 
     if (!data) {
       // Check realtime sessions
-        if(sessionStore.has(id.trim())) {
-            const session = sessionStore.get(id.trim())!;
+        if(sessionStore.has(trimmedId)) {
+            const session = sessionStore.get(trimmedId)!;
             if (Date.now() > session.expiresAt) {
-                sessionStore.delete(id.trim());
+                sessionStore.delete(trimmedId);
                 return { error: 'Content not found or has expired.' };
             }
             if (session.status === 'connected' && session.content) {
