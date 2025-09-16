@@ -3,7 +3,6 @@
 import { Download, FileText } from 'lucide-react';
 import type { SharedContent } from '@/lib/database';
 import { Button } from './ui/button';
-import { CodeBlock } from './code-block';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 
 interface ContentDisplayProps {
@@ -39,7 +38,11 @@ export function ContentDisplay({ content }: ContentDisplayProps) {
       </CardHeader>
       <CardContent>
         {content.type === 'text' ? (
-          <CodeBlock code={content.content} />
+           <pre className="p-4 rounded-md bg-background overflow-x-auto">
+            <code className="font-code text-sm">
+              {content.content}
+            </code>
+          </pre>
         ) : (
           <div className="flex items-center justify-between rounded-lg border bg-background p-4">
             <div className="flex items-center gap-3">
