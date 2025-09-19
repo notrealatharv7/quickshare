@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'QuickShare',
-  description: 'Quickly share code, text, and files.',
+  title: 'Collab Notes',
+  description: 'Collaborate on notes, code, and files in real-time.',
 };
 
 export default function RootLayout({

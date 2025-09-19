@@ -23,7 +23,7 @@ export default function Home() {
       </main>
       <footer className="py-4 text-center text-sm text-muted-foreground">
         <p>
-          &copy; {new Date().getFullYear()} QuickShare . made by s1 batch
+          &copy; {new Date().getFullYear()} Collab Notes . made by s1 batch
         </p>
       </footer>
     </div>
