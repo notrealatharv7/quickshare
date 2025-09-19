@@ -22,9 +22,7 @@ export default function Home() {
         </Tabs>
       </main>
       <footer className="py-4 text-center text-sm text-muted-foreground">
-        <p>
-          &copy; {new Date().getFullYear()} Collab Notes . made by s1 batch
-        </p>
+        <p>MADE BY S1 BATCH</p>
       </footer>
     </div>
   );
