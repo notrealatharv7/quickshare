@@ -11,6 +11,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
 
 interface PublicMessage {
+  sender: string;
   text: string;
   timestamp: number;
 }
@@ -19,8 +20,13 @@ export function PublicChatBox() {
   const [messages, setMessages] = useState<PublicMessage[]>([]);
   const [isSending, startSendingTransition] = useTransition();
   const [isPolling, startPollingTransition] = useTransition();
+  const [userName, setUserName] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout>();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setUserName(sessionStorage.getItem('userName'));
+  }, []);
 
   const fetchMessages = () => {
     startPollingTransition(async () => {
@@ -48,13 +54,13 @@ export function PublicChatBox() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const text = formData.get('message') as string;
-    if (!text.trim()) return;
+    if (!text.trim() || !userName) return;
 
     (e.currentTarget as HTMLFormElement).reset();
 
     startSendingTransition(async () => {
-      setMessages((prev) => [...prev, { text, timestamp: Date.now() }]);
-      await sendPublicChatMessage(text);
+      setMessages((prev) => [...prev, { sender: userName, text, timestamp: Date.now() }]);
+      await sendPublicChatMessage(userName, text);
       fetchMessages(); // Fetch immediately after sending
     });
   };
@@ -70,8 +76,9 @@ export function PublicChatBox() {
             <ScrollArea className="h-64 pr-4" ref={scrollAreaRef}>
             <div className="space-y-4">
                 {messages.map((msg, index) => (
-                <div key={index} className="flex items-end gap-2 justify-start">
+                <div key={index} className="flex items-start gap-2 justify-start">
                     <div className="max-w-xs rounded-lg p-3 bg-muted">
+                    <p className="font-semibold text-xs text-primary">{msg.sender}</p>
                     <p className="text-sm">{msg.text}</p>
                     <p className="text-xs text-muted-foreground text-right mt-1">
                         {new Date(msg.timestamp).toLocaleTimeString()}
@@ -87,10 +94,10 @@ export function PublicChatBox() {
             <Input
                 name="message"
                 placeholder="Type a public message..."
-                disabled={isSending}
+                disabled={isSending || !userName}
                 autoComplete="off"
             />
-            <Button type="submit" size="icon" disabled={isSending}>
+            <Button type="submit" size="icon" disabled={isSending || !userName}>
                 {isSending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

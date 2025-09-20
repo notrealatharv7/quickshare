@@ -10,8 +10,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import { authenticateWithCode } from './actions';
 import { CollabNotesLogo } from '@/components/icons';
+import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
+  const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -19,11 +21,16 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!name.trim()) {
+        setError('Please enter your name.');
+        return;
+    }
     setError(null);
     startTransition(async () => {
       const result = await authenticateWithCode(code);
       if (result.success) {
         sessionStorage.setItem('isAuthenticated', 'true');
+        sessionStorage.setItem('userName', name);
         router.push('/collab');
       } else {
         setError(result.error || 'An unknown error occurred.');
@@ -42,20 +49,37 @@ export default function LoginPage() {
         </div>
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Enter Access Code</CardTitle>
-            <CardDescription>Please enter the code provided by your instructor to continue.</CardDescription>
+            <CardTitle>Join Collaboration</CardTitle>
+            <CardDescription>Enter your name and the access code to continue.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                name="code"
-                placeholder="Enter your code"
-                className="font-mono text-lg h-12"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                disabled={isPending}
-                required
-              />
+              <div className="space-y-2">
+                <Label htmlFor="name">Your Name</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder="Enter your name"
+                  className="h-12"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isPending}
+                  required
+                />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="code">Access Code</Label>
+                <Input
+                    id="code"
+                    name="code"
+                    placeholder="Enter your code"
+                    className="font-mono text-lg h-12"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    disabled={isPending}
+                    required
+                />
+               </div>
               {error && (
                 <Alert variant="destructive">
                   <AlertTitle>Authentication Failed</AlertTitle>

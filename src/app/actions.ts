@@ -159,14 +159,16 @@ export async function getChatMessages(sessionId: string): Promise<{messages?: Ch
 
 // Public Chat
 interface PublicMessage {
+    sender: string;
     text: string;
     timestamp: number;
 }
 const publicChatStore: PublicMessage[] = [];
 
-export async function sendPublicChatMessage(message: string): Promise<{success: boolean}> {
-    if (message.trim()) {
+export async function sendPublicChatMessage(sender: string, message: string): Promise<{success: boolean}> {
+    if (message.trim() && sender.trim()) {
         publicChatStore.push({
+            sender,
             text: message,
             timestamp: Date.now(),
         });
