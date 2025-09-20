@@ -157,3 +157,27 @@ export async function getChatMessages(sessionId: string): Promise<{messages?: Ch
 }
 
 
+// Public Chat
+interface PublicMessage {
+    text: string;
+    timestamp: number;
+}
+const publicChatStore: PublicMessage[] = [];
+
+export async function sendPublicChatMessage(message: string): Promise<{success: boolean}> {
+    if (message.trim()) {
+        publicChatStore.push({
+            text: message,
+            timestamp: Date.now(),
+        });
+        // Keep only the last 100 messages
+        if (publicChatStore.length > 100) {
+            publicChatStore.shift();
+        }
+    }
+    return {success: true};
+}
+
+export async function getPublicChatMessages(): Promise<{messages: PublicMessage[]}> {
+    return { messages: publicChatStore };
+}
