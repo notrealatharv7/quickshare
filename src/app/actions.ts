@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -95,4 +96,19 @@ export async function receiveContent(id: string): Promise<ReceiveResult> {
   } catch (e) {
     return { error: 'An unexpected error occurred.' };
   }
+}
+
+interface AuthResult {
+    success: boolean;
+    error?: string;
+}
+
+const VALID_CODES = ['TEACHER123', 'STUDENT456'];
+
+export async function authenticateWithCode(code: string): Promise<AuthResult> {
+    if (VALID_CODES.includes(code.trim())) {
+        return { success: true };
+    } else {
+        return { success: false, error: 'The code you entered is invalid.' };
+    }
 }
