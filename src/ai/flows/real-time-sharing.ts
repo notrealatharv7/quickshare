@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -28,9 +29,16 @@ const CreateRealtimeSessionOutputSchema = z.object({
 });
 export type CreateRealtimeSessionOutput = z.infer<typeof CreateRealtimeSessionOutputSchema>;
 
+
+interface ChatMessage {
+    sender: 'user' | 'peer';
+    text: string;
+    timestamp: number;
+}
+
 const sessionStore = new Map<
   string,
-  {status: 'pending' | 'connected'; content?: SharedContent; expiresAt: number}
+  {status: 'pending' | 'connected'; content?: SharedContent; messages: ChatMessage[]; expiresAt: number}
 >();
 const EXPIRY_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -56,6 +64,7 @@ const createRealtimeSessionFlow = ai.defineFlow(
       currentSessionId = nanoid(8);
       sessionStore.set(currentSessionId, {
         status: 'pending',
+        messages: [],
         expiresAt: Date.now() + EXPIRY_DURATION,
       });
     }

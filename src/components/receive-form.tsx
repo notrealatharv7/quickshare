@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -10,9 +11,18 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ContentDisplay } from './content-display';
 import type { SharedContent } from '@/lib/database';
+import { ChatBox } from './chat-box';
+
+interface ChatMessage {
+  sender: 'user' | 'peer';
+  text: string;
+  timestamp: number;
+}
+
 
 interface ReceiveResult {
   data?: SharedContent;
+  messages?: ChatMessage[];
   error?: string;
 }
 
@@ -21,6 +31,8 @@ export function ReceiveForm() {
   const [result, setResult] = useState<ReceiveResult | null>(null);
   const [id, setId] = useState('');
   const pollIntervalRef = useRef<NodeJS.Timeout>();
+
+  const isRealtimeSession = result && !result.error && !result.data;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,6 +51,8 @@ export function ReceiveForm() {
             if(pollRes.data || pollRes.error) {
                 setResult(pollRes);
                 clearInterval(pollIntervalRef.current);
+            } else {
+                setResult(r => ({...r, messages: pollRes.messages}))
             }
         }, 2000);
       }
@@ -62,6 +76,8 @@ export function ReceiveForm() {
                     if(pollRes.data || pollRes.error) {
                         setResult(pollRes);
                         clearInterval(pollIntervalRef.current);
+                    } else {
+                        setResult(r => ({...r, messages: pollRes.messages}))
                     }
                 }, 2000);
             }
@@ -106,7 +122,7 @@ export function ReceiveForm() {
             </Alert>
           )}
 
-          {!result?.data && !result?.error && isPending && (
+          {isRealtimeSession && (
              <div className="flex items-center justify-center p-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-4 text-muted-foreground">Waiting for content...</p>
@@ -114,6 +130,10 @@ export function ReceiveForm() {
           )}
 
           {result?.data && <ContentDisplay content={result.data} />}
+          
+          {(isRealtimeSession || result?.data) && id && !result.error && (
+            <ChatBox sessionId={id} sender="peer" initialMessages={result?.messages} />
+          )}
         </div>
       </CardContent>
     </Card>

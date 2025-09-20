@@ -4,6 +4,13 @@
 import { revalidatePath } from 'next/cache';
 import { storageProvider, type SharedContent } from '@/lib/database';
 
+interface ChatMessage {
+    sender: 'user' | 'peer';
+    text: string;
+    timestamp: number;
+}
+
+
 interface SendState {
   id?: string;
   error?: string;
@@ -12,7 +19,7 @@ interface SendState {
 
 const sessionStore = new Map<
   string,
-  {status: 'pending' | 'connected'; content?: SharedContent; expiresAt: number}
+  {status: 'pending' | 'connected'; content?: SharedContent; messages: ChatMessage[]; expiresAt: number}
 >();
 const EXPIRY_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -62,6 +69,7 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
 
 interface ReceiveResult {
   data?: SharedContent;
+  messages?: ChatMessage[];
   error?: string;
 }
 
@@ -84,9 +92,13 @@ export async function receiveContent(id: string): Promise<ReceiveResult> {
                 return { error: 'Content not found or has expired.' };
             }
             if (session.status === 'connected' && session.content) {
-                return {data: session.content};
+                return {data: session.content, messages: session.messages};
             }
-            return {}; // Still pending
+            // User has joined, mark as connected
+            if(session.status === 'pending') {
+                session.status = 'connected';
+            }
+             return {messages: session.messages}; // Still pending content, but can chat
         }
 
       return { error: 'Content not found or has expired.' };
@@ -112,3 +124,36 @@ export async function authenticateWithCode(code: string): Promise<AuthResult> {
         return { success: false, error: 'The code you entered is invalid.' };
     }
 }
+
+export async function sendChatMessage(sessionId: string, message: string, sender: 'user' | 'peer'): Promise<{success: boolean, error?: string}> {
+    if (!sessionStore.has(sessionId)) {
+        return {success: false, error: 'Session not found.'};
+    }
+    const session = sessionStore.get(sessionId)!;
+     if (Date.now() > session.expiresAt) {
+        sessionStore.delete(sessionId);
+        return {success: false, error: 'Session has expired.'};
+    }
+    
+    session.messages.push({
+        sender,
+        text: message,
+        timestamp: Date.now()
+    });
+
+    return {success: true};
+}
+
+export async function getChatMessages(sessionId: string): Promise<{messages?: ChatMessage[], error?: string}> {
+    if (!sessionStore.has(sessionId)) {
+        return { error: 'Session not found.' };
+    }
+    const session = sessionStore.get(sessionId)!;
+    if (Date.now() > session.expiresAt) {
+        sessionStore.delete(sessionId);
+        return { error: 'Session has expired.' };
+    }
+    return { messages: session.messages };
+}
+
+

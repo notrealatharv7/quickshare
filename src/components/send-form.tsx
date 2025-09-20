@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, type DragEvent, useRef, useEffect, useActionState } from 'react';
@@ -20,8 +21,13 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { createRealtimeSession } from '@/ai/flows/real-time-sharing';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
+import { ChatBox } from './chat-box';
 
-const initialState = {};
+const initialState = {
+    id: undefined,
+    isRealtime: false,
+    error: undefined,
+};
 
 export function SendForm() {
   const [formState, formAction] = useActionState(sendContent, initialState);
@@ -48,7 +54,7 @@ export function SendForm() {
   }, [useRealtime]);
 
   const handleCopy = (id: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}#${id}`);
+    navigator.clipboard.writeText(`${window.location.origin}/collab#${id}`);
     toast({
       title: 'Copied to clipboard!',
       description: 'The shareable link has been copied.',
@@ -111,17 +117,22 @@ export function SendForm() {
             <Button
               size="icon"
               className="h-12 w-12"
-              onClick={() => handleCopy(formState.id)}
+              onClick={() => handleCopy(formState.id!)}
             >
               <Copy className="h-6 w-6" />
             </Button>
           </div>
+           {formState.isRealtime && formState.id && <ChatBox sessionId={formState.id} sender="user" />}
           <Button
             variant="link"
             className="px-0 mt-4"
             onClick={() => {
+              // A bit of a hack to reset the form state
               formState.id = undefined;
+              formState.error = undefined;
+              formState.isRealtime = false;
               setUseRealtime(false);
+              setRealtimeSessionId(null);
             }}
           >
             Share something else
@@ -213,6 +224,7 @@ export function SendForm() {
                 className="font-mono text-md h-10 bg-transparent border-0"
               />
               <Button
+                type="button"
                 size="icon"
                 variant="ghost"
                 className="h-9 w-9"
