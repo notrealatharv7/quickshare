@@ -3,6 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { storageProvider, type SharedContent } from '@/lib/database';
+import { nanoid } from 'nanoid';
 
 interface ChatMessage {
     sender: 'user' | 'peer';
@@ -182,4 +183,20 @@ export async function sendPublicChatMessage(sender: string, message: string): Pr
 
 export async function getPublicChatMessages(): Promise<{messages: PublicMessage[]}> {
     return { messages: publicChatStore };
+}
+
+
+// Real-time session creation
+interface CreateRealtimeSessionOutput {
+  sessionId: string;
+}
+
+export async function createRealtimeSession(): Promise<CreateRealtimeSessionOutput> {
+    const sessionId = nanoid(8);
+    sessionStore.set(sessionId, {
+        status: 'pending',
+        messages: [],
+        expiresAt: Date.now() + EXPIRY_DURATION,
+    });
+    return { sessionId };
 }

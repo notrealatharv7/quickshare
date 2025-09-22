@@ -3,7 +3,7 @@
 
 import { useState, useTransition, type DragEvent, useRef, useEffect, useActionState } from 'react';
 import { Copy, Loader2, Send, UploadCloud, X, Wifi } from 'lucide-react';
-import { sendContent } from '@/app/actions';
+import { sendContent, createRealtimeSession } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { createRealtimeSession } from '@/ai/flows/real-time-sharing';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
 import { ChatBox } from './chat-box';
@@ -44,7 +43,7 @@ export function SendForm() {
   useEffect(() => {
     if (useRealtime && !realtimeSessionId) {
       startRealtimeTransition(async () => {
-        const { sessionId } = await createRealtimeSession({});
+        const { sessionId } = await createRealtimeSession();
         setRealtimeSessionId(sessionId);
       });
     }
