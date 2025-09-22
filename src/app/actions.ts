@@ -29,6 +29,38 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
   const file = formData.get('file') as File;
   const realtimeSessionId = formData.get('realtimeSessionId') as string;
 
+  if (realtimeSessionId && sessionStore.has(realtimeSessionId)) {
+      const session = sessionStore.get(realtimeSessionId)!;
+      let contentToUpdate: SharedContent | undefined;
+
+      if (file && file.size > 0) {
+        const buffer = await file.arrayBuffer();
+        contentToUpdate = {
+            type: 'file',
+            content: Buffer.from(buffer).toString('base64'),
+            filename: file.name,
+            mimetype: file.type,
+        };
+      } else if (text) {
+         contentToUpdate = {
+            type: 'text',
+            content: text,
+        };
+      }
+      
+      if (contentToUpdate) {
+        session.content = contentToUpdate;
+        // If the other user hasn't joined, we are just updating the content that will be delivered.
+        // If they have joined, we are pushing the update.
+        if (session.status === 'pending') {
+             session.status = 'connected'; // Mark as connected since content is now available
+        }
+      }
+
+      return {id: realtimeSessionId, isRealtime: true};
+  }
+
+
   if (!text && file.size === 0) {
     return { error: 'Please provide text, or drop a file to share.' };
   }
@@ -50,14 +82,6 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
         content: text,
       };
     }
-
-    if (realtimeSessionId && sessionStore.has(realtimeSessionId)) {
-        const session = sessionStore.get(realtimeSessionId)!;
-        session.status = 'connected';
-        session.content = contentToStore;
-        return {id: realtimeSessionId, isRealtime: true};
-    }
-
 
     const id = await storageProvider.setContent(contentToStore);
 
@@ -82,26 +106,26 @@ export async function receiveContent(id: string): Promise<ReceiveResult> {
     return { error: 'Invalid ID format. Please enter a valid 8-character ID.' };
   }
   try {
+    // Check realtime sessions first
+    if(sessionStore.has(trimmedId)) {
+        const session = sessionStore.get(trimmedId)!;
+        if (Date.now() > session.expiresAt) {
+            sessionStore.delete(trimmedId);
+            return { error: 'Content not found or has expired.' };
+        }
+        if (session.status === 'connected' && session.content) {
+            return {data: session.content, messages: session.messages};
+        }
+        // User has joined, mark as connected
+        if(session.status === 'pending') {
+            session.status = 'connected';
+        }
+          return {messages: session.messages}; // Still pending content, but can chat
+    }
+      
     const data = await storageProvider.getContent(trimmedId);
 
     if (!data) {
-      // Check realtime sessions
-        if(sessionStore.has(trimmedId)) {
-            const session = sessionStore.get(trimmedId)!;
-            if (Date.now() > session.expiresAt) {
-                sessionStore.delete(trimmedId);
-                return { error: 'Content not found or has expired.' };
-            }
-            if (session.status === 'connected' && session.content) {
-                return {data: session.content, messages: session.messages};
-            }
-            // User has joined, mark as connected
-            if(session.status === 'pending') {
-                session.status = 'connected';
-            }
-             return {messages: session.messages}; // Still pending content, but can chat
-        }
-
       return { error: 'Content not found or has expired.' };
     }
 

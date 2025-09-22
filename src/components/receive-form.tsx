@@ -32,7 +32,8 @@ export function ReceiveForm() {
   const [id, setId] = useState('');
   const pollIntervalRef = useRef<NodeJS.Timeout>();
 
-  const isRealtimeSession = result && !result.error && !result.data;
+  const isRealtimeSession = result && !result.error;
+  const isWaitingForContent = isRealtimeSession && !result.data;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,23 +42,30 @@ export function ReceiveForm() {
     if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
     }
-    startTransition(async () => {
-      const res = await receiveContent(id);
-      setResult(res);
-      if (!res.data && !res.error) {
-        // Start polling if it's a pending session
-        pollIntervalRef.current = setInterval(async () => {
-            const pollRes = await receiveContent(id);
-            if(pollRes.data || pollRes.error) {
-                setResult(pollRes);
-                clearInterval(pollIntervalRef.current);
-            } else {
-                setResult(r => ({...r, messages: pollRes.messages}))
-            }
-        }, 2000);
-      }
-    });
+    fetchContent(id);
   };
+
+  const fetchContent = (sessionId: string) => {
+    startTransition(async () => {
+        const res = await receiveContent(sessionId);
+        setResult(res);
+
+        if (!res.error && !pollIntervalRef.current) {
+          // Start polling if it's a realtime session
+          pollIntervalRef.current = setInterval(async () => {
+              const pollRes = await receiveContent(sessionId);
+              if(pollRes.error) {
+                  setResult(pollRes);
+                  clearInterval(pollIntervalRef.current);
+              } else {
+                  setResult(pollRes);
+              }
+          }, 2000);
+        } else if (res.error && pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+        }
+    });
+  }
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -66,22 +74,7 @@ export function ReceiveForm() {
       setId(id);
       window.location.hash = '';
       if(id) {
-          startTransition(async () => {
-            const res = await receiveContent(id);
-            setResult(res);
-            if (!res.data && !res.error) {
-                // Start polling if it's a pending session
-                pollIntervalRef.current = setInterval(async () => {
-                    const pollRes = await receiveContent(id);
-                    if(pollRes.data || pollRes.error) {
-                        setResult(pollRes);
-                        clearInterval(pollIntervalRef.current);
-                    } else {
-                        setResult(r => ({...r, messages: pollRes.messages}))
-                    }
-                }, 2000);
-            }
-          });
+        fetchContent(id);
       }
     }
 
@@ -122,7 +115,7 @@ export function ReceiveForm() {
             </Alert>
           )}
 
-          {isRealtimeSession && (
+          {isWaitingForContent && (
              <div className="flex items-center justify-center p-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-4 text-muted-foreground">Waiting for content...</p>
@@ -131,7 +124,7 @@ export function ReceiveForm() {
 
           {result?.data && <ContentDisplay content={result.data} />}
           
-          {(isRealtimeSession || result?.data) && id && !result.error && (
+          {isRealtimeSession && id && (
             <ChatBox sessionId={id} sender="peer" initialMessages={result?.messages} />
           )}
         </div>

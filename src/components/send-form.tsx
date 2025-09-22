@@ -33,12 +33,15 @@ export function SendForm() {
   const [isPending, startTransition] = useTransition();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [textContent, setTextContent] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
 
   const [useRealtime, setUseRealtime] = useState(false);
   const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null);
   const [isRealtimePending, startRealtimeTransition] = useTransition();
+  
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (useRealtime && !realtimeSessionId) {
@@ -51,6 +54,29 @@ export function SendForm() {
       setRealtimeSessionId(null);
     }
   }, [useRealtime]);
+
+  // Auto-save logic for real-time text content
+  useEffect(() => {
+    if (useRealtime && realtimeSessionId && textContent) {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        startTransition(() => {
+          const formData = new FormData();
+          formData.append('text', textContent);
+          formData.append('realtimeSessionId', realtimeSessionId);
+          formAction(formData);
+        });
+      }, 1500); // Auto-save after 1.5s of inactivity
+    }
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    }
+  }, [textContent, useRealtime, realtimeSessionId, formAction]);
+
 
   const handleCopy = (id: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/collab#${id}`);
@@ -75,6 +101,7 @@ export function SendForm() {
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
+      setTextContent(''); // Clear text when file is dropped
     }
   };
 
@@ -91,19 +118,58 @@ export function SendForm() {
       formAction(formData);
     });
   };
+  
+  const handleReset = () => {
+    // A bit of a hack to reset the form state
+    formState.id = undefined;
+    formState.error = undefined;
+    formState.isRealtime = false;
+    setUseRealtime(false);
+    setRealtimeSessionId(null);
+    setTextContent('');
+    setFile(null);
+    formRef.current?.reset();
+  }
+
 
   useEffect(() => {
-    if (formState?.id || formState?.error) {
-      if (formState.id) {
-        if (!formState.isRealtime) {
-          formRef.current?.reset();
-          setFile(null);
-        }
-      }
+    if (formState?.id && !formState.isRealtime) {
+        handleReset();
     }
   }, [formState]);
 
-  if (formState?.id) {
+  if (formState?.id && formState?.isRealtime) {
+    return (
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle>Real-time Session Active</CardTitle>
+          <CardDescription>Share this ID. Your content will be shared live.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2">
+            <Input readOnly value={formState.id} className="font-mono text-lg h-12" />
+            <Button
+              size="icon"
+              className="h-12 w-12"
+              onClick={() => handleCopy(formState.id!)}
+            >
+              <Copy className="h-6 w-6" />
+            </Button>
+          </div>
+           {formState.isRealtime && formState.id && <ChatBox sessionId={formState.id} sender="user" />}
+          <Button
+            variant="link"
+            className="px-0 mt-4"
+            onClick={handleReset}
+          >
+            End Session & Share Something Else
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  if (formState?.id && !formState.isRealtime) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -121,24 +187,16 @@ export function SendForm() {
               <Copy className="h-6 w-6" />
             </Button>
           </div>
-           {formState.isRealtime && formState.id && <ChatBox sessionId={formState.id} sender="user" />}
           <Button
             variant="link"
             className="px-0 mt-4"
-            onClick={() => {
-              // A bit of a hack to reset the form state
-              formState.id = undefined;
-              formState.error = undefined;
-              formState.isRealtime = false;
-              setUseRealtime(false);
-              setRealtimeSessionId(null);
-            }}
+            onClick={handleReset}
           >
             Share something else
           </Button>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -192,6 +250,11 @@ export function SendForm() {
                   placeholder="Paste your content here..."
                   className="h-64 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
                   disabled={isPending}
+                  value={textContent}
+                  onChange={(e) => {
+                    setTextContent(e.target.value);
+                    if (file) setFile(null); // Clear file if user starts typing
+                  }}
                 />
               </>
             )}
@@ -203,7 +266,7 @@ export function SendForm() {
               id="realtime-mode"
               checked={useRealtime}
               onCheckedChange={setUseRealtime}
-              disabled={isRealtimePending}
+              disabled={isRealtimePending || isPending}
             />
             <Label htmlFor="realtime-mode" className="flex items-center gap-2">
               {isRealtimePending ? (
@@ -240,7 +303,7 @@ export function SendForm() {
               <AlertDescription>{formState.error}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" size="lg" disabled={isPending}>
+          <Button type="submit" size="lg" disabled={isPending || (useRealtime && !!textContent) }>
             {isPending ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
