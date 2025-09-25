@@ -3,7 +3,7 @@
 
 import { useState, useTransition, type DragEvent, useRef, useEffect, useActionState } from 'react';
 import { Copy, Loader2, Send, UploadCloud, X, Wifi } from 'lucide-react';
-import { sendContent, createRealtimeSession } from '@/app/actions';
+import { sendContent, createRealtimeSession, updateRealtimeContent } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -29,8 +29,8 @@ const initialState = {
 };
 
 export function SendForm() {
-  const [formState, formAction] = useActionState(sendContent, initialState);
-  const [isPending, startTransition] = useTransition();
+  const [formState, formAction, isFormPending] = useActionState(sendContent, initialState);
+  const [isAutoSaving, startAutoSaveTransition] = useTransition();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [textContent, setTextContent] = useState('');
@@ -40,6 +40,7 @@ export function SendForm() {
   const [useRealtime, setUseRealtime] = useState(false);
   const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null);
   const [isRealtimePending, startRealtimeTransition] = useTransition();
+  const [realtimeSessionActive, setRealtimeSessionActive] = useState(false);
   
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
@@ -62,11 +63,8 @@ export function SendForm() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
       autoSaveTimeoutRef.current = setTimeout(() => {
-        startTransition(() => {
-          const formData = new FormData();
-          formData.append('text', textContent);
-          formData.append('realtimeSessionId', realtimeSessionId);
-          formAction(formData);
+        startAutoSaveTransition(async () => {
+          await updateRealtimeContent(realtimeSessionId, textContent);
         });
       }, 1500); // Auto-save after 1.5s of inactivity
     }
@@ -75,7 +73,7 @@ export function SendForm() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     }
-  }, [textContent, useRealtime, realtimeSessionId, formAction]);
+  }, [textContent, useRealtime, realtimeSessionId]);
 
 
   const handleCopy = (id: string) => {
@@ -107,23 +105,25 @@ export function SendForm() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (useRealtime && realtimeSessionId) {
+        setRealtimeSessionActive(true);
+        return;
+    }
     const formData = new FormData(e.currentTarget);
     if (file) {
       formData.append('file', file);
     }
-    if (realtimeSessionId) {
-      formData.append('realtimeSessionId', realtimeSessionId);
-    }
-    startTransition(() => {
-      formAction(formData);
-    });
+    formAction(formData);
   };
   
   const handleReset = () => {
     // A bit of a hack to reset the form state
-    formState.id = undefined;
-    formState.error = undefined;
-    formState.isRealtime = false;
+    if (formState) {
+        formState.id = undefined;
+        formState.error = undefined;
+        formState.isRealtime = false;
+    }
+    setRealtimeSessionActive(false);
     setUseRealtime(false);
     setRealtimeSessionId(null);
     setTextContent('');
@@ -131,14 +131,7 @@ export function SendForm() {
     formRef.current?.reset();
   }
 
-
-  useEffect(() => {
-    if (formState?.id && !formState.isRealtime) {
-        // We don't reset here anymore to show the success message
-    }
-  }, [formState]);
-
-  if (formState?.id && formState?.isRealtime) {
+  if (realtimeSessionActive && realtimeSessionId) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -147,16 +140,16 @@ export function SendForm() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2">
-            <Input readOnly value={formState.id} className="font-mono text-lg h-12" />
+            <Input readOnly value={realtimeSessionId} className="font-mono text-lg h-12" />
             <Button
               size="icon"
               className="h-12 w-12"
-              onClick={() => handleCopy(formState.id!)}
+              onClick={() => handleCopy(realtimeSessionId!)}
             >
               <Copy className="h-6 w-6" />
             </Button>
           </div>
-           {formState.isRealtime && formState.id && <ChatBox sessionId={formState.id} sender="user" />}
+           <ChatBox sessionId={realtimeSessionId} sender="user" />
           <Button
             variant="link"
             className="px-0 mt-4"
@@ -249,7 +242,7 @@ export function SendForm() {
                   name="text"
                   placeholder="Paste your content here..."
                   className="h-64 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent font-code"
-                  disabled={isPending}
+                  disabled={isFormPending}
                   value={textContent}
                   onChange={(e) => {
                     setTextContent(e.target.value);
@@ -266,7 +259,7 @@ export function SendForm() {
               id="realtime-mode"
               checked={useRealtime}
               onCheckedChange={setUseRealtime}
-              disabled={isRealtimePending || isPending}
+              disabled={isRealtimePending || isFormPending}
             />
             <Label htmlFor="realtime-mode" className="flex items-center gap-2">
               {isRealtimePending ? (
@@ -297,14 +290,14 @@ export function SendForm() {
             </div>
           )}
 
-          {formState.error && (
+          {formState?.error && (
             <Alert variant="destructive">
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{formState.error}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" size="lg" disabled={isPending || (useRealtime && !!textContent) }>
-            {isPending ? (
+          <Button type="submit" size="lg" disabled={isFormPending || (useRealtime && !!textContent && isAutoSaving) }>
+            {isFormPending || isAutoSaving ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <Send className="mr-2 h-5 w-5" />

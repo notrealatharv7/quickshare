@@ -27,36 +27,6 @@ const EXPIRY_DURATION = 5 * 60 * 1000; // 5 minutes
 export async function sendContent(prevState: SendState, formData: FormData): Promise<SendState> {
   const text = formData.get('text') as string;
   const file = formData.get('file') as File;
-  const realtimeSessionId = formData.get('realtimeSessionId') as string;
-
-  if (realtimeSessionId && sessionStore.has(realtimeSessionId)) {
-      const session = sessionStore.get(realtimeSessionId)!;
-      let contentToUpdate: SharedContent | undefined;
-
-      // During auto-save, only text is sent.
-      if (text) {
-         contentToUpdate = {
-            type: 'text',
-            content: text,
-        };
-      } else if (!session.content) {
-        // If there's no text and no file, but a session exists,
-        // it means we are just establishing the session link without initial content.
-        // We still need to return the ID.
-         return {id: realtimeSessionId, isRealtime: true};
-      }
-      
-      if (contentToUpdate) {
-        session.content = contentToUpdate;
-        // Mark as connected only when the first piece of content arrives
-        if (session.status === 'pending') {
-             session.status = 'connected'; 
-        }
-      }
-
-      return {id: realtimeSessionId, isRealtime: true};
-  }
-
 
   if (!text && (!file || file.size === 0)) {
     return { error: 'Please provide text, or drop a file to share.' };
@@ -224,4 +194,22 @@ export async function createRealtimeSession(): Promise<CreateRealtimeSessionOutp
         content: { type: 'text', content: ''} // Initialize with empty text content
     });
     return { sessionId };
+}
+
+export async function updateRealtimeContent(sessionId: string, text: string): Promise<{success: boolean, error?: string}> {
+    if (!sessionStore.has(sessionId)) {
+        return {success: false, error: 'Session not found.'};
+    }
+    const session = sessionStore.get(sessionId)!;
+    if (Date.now() > session.expiresAt) {
+        sessionStore.delete(sessionId);
+        return {success: false, error: 'Session has expired.'};
+    }
+    
+    session.content = { type: 'text', content: text };
+    if (session.status === 'pending') {
+        session.status = 'connected';
+    }
+
+    return {success: true};
 }
