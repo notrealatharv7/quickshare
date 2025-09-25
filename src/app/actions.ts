@@ -34,16 +34,7 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
       let contentToUpdate: SharedContent | undefined;
 
       // During auto-save, only text is sent.
-      // When explicitly starting the session, a file might be present.
-      if (file && file.size > 0) {
-        const buffer = await file.arrayBuffer();
-        contentToUpdate = {
-            type: 'file',
-            content: Buffer.from(buffer).toString('base64'),
-            filename: file.name,
-            mimetype: file.type,
-        };
-      } else if (text) {
+      if (text) {
          contentToUpdate = {
             type: 'text',
             content: text,
