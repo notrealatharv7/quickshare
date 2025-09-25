@@ -40,7 +40,6 @@ export function SendForm() {
   const [useRealtime, setUseRealtime] = useState(false);
   const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null);
   const [isRealtimePending, startRealtimeTransition] = useTransition();
-  const [realtimeSessionActive, setRealtimeSessionActive] = useState(false);
   
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
@@ -103,17 +102,12 @@ export function SendForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (useRealtime && realtimeSessionId) {
-        setRealtimeSessionActive(true);
-        return;
-    }
-    const formData = new FormData(e.currentTarget);
-    if (file) {
-      formData.append('file', file);
-    }
-    formAction(formData);
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+      const formData = new FormData(event.currentTarget);
+      if (file) {
+        formData.append('file', file);
+      }
+      // The `action` prop on the form will call `formAction`
   };
   
   const handleReset = () => {
@@ -123,15 +117,16 @@ export function SendForm() {
         formState.error = undefined;
         formState.isRealtime = false;
     }
-    setRealtimeSessionActive(false);
     setUseRealtime(false);
     setRealtimeSessionId(null);
     setTextContent('');
     setFile(null);
     formRef.current?.reset();
   }
+  
+  const isRealtimeSessionActive = formState?.isRealtime && formState?.id;
 
-  if (realtimeSessionActive && realtimeSessionId) {
+  if (isRealtimeSessionActive) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -140,16 +135,16 @@ export function SendForm() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2">
-            <Input readOnly value={realtimeSessionId} className="font-mono text-lg h-12" />
+            <Input readOnly value={formState.id} className="font-mono text-lg h-12" />
             <Button
               size="icon"
               className="h-12 w-12"
-              onClick={() => handleCopy(realtimeSessionId!)}
+              onClick={() => handleCopy(formState.id!)}
             >
               <Copy className="h-6 w-6" />
             </Button>
           </div>
-           <ChatBox sessionId={realtimeSessionId} sender="user" />
+           <ChatBox sessionId={formState.id!} sender="user" />
           <Button
             variant="link"
             className="px-0 mt-4"
@@ -198,7 +193,7 @@ export function SendForm() {
         <CardTitle>Send Content</CardTitle>
         <CardDescription>Paste your code, text, or drop a file to share it instantly.</CardDescription>
       </CardHeader>
-      <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col flex-1">
+      <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="flex flex-col flex-1">
         <CardContent
           className="flex-1"
           onDragEnter={handleDragEnter}
@@ -257,6 +252,7 @@ export function SendForm() {
           <div className="flex items-center space-x-2">
             <Switch
               id="realtime-mode"
+              name="useRealtime"
               checked={useRealtime}
               onCheckedChange={setUseRealtime}
               disabled={isRealtimePending || isFormPending}
@@ -273,6 +269,7 @@ export function SendForm() {
 
           {realtimeSessionId && (
             <div className="flex items-center space-x-2 p-2 rounded-md bg-muted">
+                <input type="hidden" name="realtimeSessionId" value={realtimeSessionId} />
               <Input
                 readOnly
                 value={realtimeSessionId}
