@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Loader2, Send } from 'lucide-react';
-import { getChatMessages, sendChatMessage } from '@/app/actions';
+import { getChatMessages, sendRealtimeChatMessage } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
@@ -65,7 +65,7 @@ export function ChatBox({ sessionId, sender, initialMessages = [] }: ChatBoxProp
 
     startSendingTransition(async () => {
       setMessages((prev) => [...prev, { sender, text, timestamp: Date.now() }]);
-      await sendChatMessage(sessionId, text, sender);
+      await sendRealtimeChatMessage(sessionId, text, sender);
       fetchMessages(); // Fetch immediately after sending
     });
   };

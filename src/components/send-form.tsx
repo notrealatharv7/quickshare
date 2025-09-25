@@ -106,7 +106,7 @@ export function SendForm() {
             formData.set('file', file);
         }
         startTransition(async () => {
-            const result = await sendContent(formData);
+            const result = await sendContent({}, formData);
             setState(result);
         });
     }
@@ -242,7 +242,7 @@ export function SendForm() {
                 </div>
                 <Textarea
                   name="text"
-                  placeholder="Paste your content here..."
+                  placeholder="Paste your code here..."
                   className="h-64 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent font-code"
                   disabled={isPending || isRealtimePending}
                   value={textContent}

@@ -11,7 +11,6 @@ interface ChatMessage {
     timestamp: number;
 }
 
-
 interface SendState {
   id?: string;
   error?: string;
@@ -27,6 +26,18 @@ const EXPIRY_DURATION = 5 * 60 * 1000; // 5 minutes
 export async function sendContent(prevState: SendState, formData: FormData): Promise<SendState> {
   const text = formData.get('text') as string;
   const file = formData.get('file') as File;
+  const useRealtime = formData.get('useRealtime') === 'true';
+
+  if (useRealtime) {
+      const sessionId = nanoid(8);
+      sessionStore.set(sessionId, {
+          status: 'pending',
+          messages: [],
+          expiresAt: Date.now() + EXPIRY_DURATION,
+          content: { type: 'text', content: textContent }
+      });
+      return { id: sessionId, isRealtime: true };
+  }
 
   if (!text && (!file || file.size === 0)) {
     return { error: 'Please provide text, or drop a file to share.' };
@@ -34,6 +45,7 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
 
   try {
     let contentToStore: SharedContent;
+    const textContent = formData.get('text') as string;
 
     if (file && file.size > 0) {
       const buffer = await file.arrayBuffer();
@@ -46,7 +58,7 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
     } else {
       contentToStore = {
         type: 'text',
-        content: text,
+        content: textContent,
       };
     }
 
@@ -121,25 +133,6 @@ export async function authenticateWithCode(code: string): Promise<AuthResult> {
     }
 }
 
-export async function sendChatMessage(sessionId: string, message: string, sender: 'user' | 'peer'): Promise<{success: boolean, error?: string}> {
-    if (!sessionStore.has(sessionId)) {
-        return {success: false, error: 'Session not found.'};
-    }
-    const session = sessionStore.get(sessionId)!;
-     if (Date.now() > session.expiresAt) {
-        sessionStore.delete(sessionId);
-        return {success: false, error: 'Session has expired.'};
-    }
-    
-    session.messages.push({
-        sender,
-        text: message,
-        timestamp: Date.now()
-    });
-
-    return {success: true};
-}
-
 export async function getChatMessages(sessionId: string): Promise<{messages?: ChatMessage[], error?: string}> {
     if (!sessionStore.has(sessionId)) {
         return { error: 'Session not found.' };
@@ -212,5 +205,18 @@ export async function updateRealtimeContent(sessionId: string, text: string): Pr
         session.status = 'connected';
     }
 
+    return {success: true};
+}
+
+export async function sendRealtimeChatMessage(sessionId: string, text: string, sender: 'user' | 'peer'): Promise<{success: boolean, error?: string}> {
+    if (!sessionStore.has(sessionId)) {
+        return {success: false, error: 'Session not found.'};
+    }
+    const session = sessionStore.get(sessionId)!;
+    if (Date.now() > session.expiresAt) {
+        sessionStore.delete(sessionId);
+        return {success: false, error: 'Session has expired.'};
+    }
+    session.messages.push({ sender, text, timestamp: Date.now() });
     return {success: true};
 }
