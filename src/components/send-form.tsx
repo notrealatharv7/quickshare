@@ -41,29 +41,19 @@ export function SendForm() {
   const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null);
   const [isRealtimePending, startRealtimeTransition] = useTransition();
   
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const [activeRealtimeSession, setActiveRealtimeSession] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (useRealtime && !realtimeSessionId) {
-      startRealtimeTransition(async () => {
-        const { sessionId } = await createRealtimeSession();
-        setRealtimeSessionId(sessionId);
-      });
-    }
-    if (!useRealtime) {
-      setRealtimeSessionId(null);
-    }
-  }, [useRealtime]);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Auto-save logic for real-time text content
   useEffect(() => {
-    if (useRealtime && realtimeSessionId) {
+    if (activeRealtimeSession) {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
       autoSaveTimeoutRef.current = setTimeout(() => {
         startAutoSaveTransition(async () => {
-          await updateRealtimeContent(realtimeSessionId, textContent);
+          await updateRealtimeContent(activeRealtimeSession, textContent);
         });
       }, 1500); // Auto-save after 1.5s of inactivity
     }
@@ -72,7 +62,7 @@ export function SendForm() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     }
-  }, [textContent, useRealtime, realtimeSessionId]);
+  }, [textContent, activeRealtimeSession]);
 
 
   const handleCopy = (id: string) => {
@@ -103,48 +93,63 @@ export function SendForm() {
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (useRealtime) {
+        startRealtimeTransition(async () => {
+            const { sessionId } = await createRealtimeSession();
+            await updateRealtimeContent(sessionId, textContent);
+            setActiveRealtimeSession(sessionId);
+        });
+    } else {
       const formData = new FormData(event.currentTarget);
       if (file) {
         formData.append('file', file);
       }
-      // The `action` prop on the form will call `formAction`
+      formAction(formData);
+    }
   };
   
   const handleReset = () => {
-    // A bit of a hack to reset the form state
     if (formState) {
         formState.id = undefined;
         formState.error = undefined;
-        formState.isRealtime = false;
     }
     setUseRealtime(false);
-    setRealtimeSessionId(null);
+    setActiveRealtimeSession(null);
     setTextContent('');
     setFile(null);
     formRef.current?.reset();
   }
-  
-  const isRealtimeSessionActive = formState?.isRealtime && formState?.id;
 
-  if (isRealtimeSessionActive) {
+  if (activeRealtimeSession) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Real-time Session Active</CardTitle>
-          <CardDescription>Share this ID. Your content will be shared live.</CardDescription>
+          <CardDescription>Share this ID. Your content will be shared live as you type.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2">
-            <Input readOnly value={formState.id} className="font-mono text-lg h-12" />
+            <Input readOnly value={activeRealtimeSession} className="font-mono text-lg h-12" />
             <Button
               size="icon"
               className="h-12 w-12"
-              onClick={() => handleCopy(formState.id!)}
+              onClick={() => handleCopy(activeRealtimeSession)}
             >
               <Copy className="h-6 w-6" />
             </Button>
           </div>
-           <ChatBox sessionId={formState.id!} sender="user" />
+          <Textarea
+            name="text"
+            placeholder="Paste your content here..."
+            className="h-64 resize-none font-code mt-4"
+            value={textContent}
+            onChange={(e) => setTextContent(e.target.value)}
+          />
+          <div className="text-right text-sm text-muted-foreground mt-2 h-4">
+            {isAutoSaving && 'Saving...'}
+          </div>
+           <ChatBox sessionId={activeRealtimeSession} sender="user" />
           <Button
             variant="link"
             className="px-0 mt-4"
@@ -157,7 +162,7 @@ export function SendForm() {
     );
   }
   
-  if (formState?.id && !formState.isRealtime) {
+  if (formState?.id) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -193,7 +198,7 @@ export function SendForm() {
         <CardTitle>Send Content</CardTitle>
         <CardDescription>Paste your code, text, or drop a file to share it instantly.</CardDescription>
       </CardHeader>
-      <form ref={formRef} action={formAction} onSubmit={handleSubmit} className="flex flex-col flex-1">
+      <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col flex-1">
         <CardContent
           className="flex-1"
           onDragEnter={handleDragEnter}
@@ -237,7 +242,7 @@ export function SendForm() {
                   name="text"
                   placeholder="Paste your content here..."
                   className="h-64 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent font-code"
-                  disabled={isFormPending}
+                  disabled={isFormPending || isRealtimePending}
                   value={textContent}
                   onChange={(e) => {
                     setTextContent(e.target.value);
@@ -255,37 +260,13 @@ export function SendForm() {
               name="useRealtime"
               checked={useRealtime}
               onCheckedChange={setUseRealtime}
-              disabled={isRealtimePending || isFormPending}
+              disabled={isFormPending || isRealtimePending}
             />
             <Label htmlFor="realtime-mode" className="flex items-center gap-2">
-              {isRealtimePending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wifi className="h-4 w-4" />
-              )}
+              <Wifi className="h-4 w-4" />
               Real-time Session
             </Label>
           </div>
-
-          {realtimeSessionId && (
-            <div className="flex items-center space-x-2 p-2 rounded-md bg-muted">
-                <input type="hidden" name="realtimeSessionId" value={realtimeSessionId} />
-              <Input
-                readOnly
-                value={realtimeSessionId}
-                className="font-mono text-md h-10 bg-transparent border-0"
-              />
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-9 w-9"
-                onClick={() => handleCopy(realtimeSessionId)}
-              >
-                <Copy className="h-5 w-5" />
-              </Button>
-            </div>
-          )}
 
           {formState?.error && (
             <Alert variant="destructive">
@@ -293,8 +274,8 @@ export function SendForm() {
               <AlertDescription>{formState.error}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" size="lg" disabled={isFormPending || (useRealtime && !!textContent && isAutoSaving) }>
-            {isFormPending || isAutoSaving ? (
+          <Button type="submit" size="lg" disabled={isFormPending || isRealtimePending}>
+            {isFormPending || isRealtimePending ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <Send className="mr-2 h-5 w-5" />

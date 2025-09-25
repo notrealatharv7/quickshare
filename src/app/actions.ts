@@ -27,16 +27,6 @@ const EXPIRY_DURATION = 5 * 60 * 1000; // 5 minutes
 export async function sendContent(prevState: SendState, formData: FormData): Promise<SendState> {
   const text = formData.get('text') as string;
   const file = formData.get('file') as File;
-  const useRealtime = formData.get('useRealtime') === 'on';
-  const realtimeSessionId = formData.get('realtimeSessionId') as string | null;
-
-  if (useRealtime) {
-      if (realtimeSessionId) {
-        return { isRealtime: true, id: realtimeSessionId };
-      } else {
-        return { error: 'Could not create or find a real-time session.' };
-      }
-  }
 
   if (!text && (!file || file.size === 0)) {
     return { error: 'Please provide text, or drop a file to share.' };
