@@ -34,7 +34,7 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
           status: 'pending',
           messages: [],
           expiresAt: Date.now() + EXPIRY_DURATION,
-          content: { type: 'text', content: textContent }
+          content: { type: 'text', content: text }
       });
       return { id: sessionId, isRealtime: true };
   }
