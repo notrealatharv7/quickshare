@@ -7,7 +7,6 @@ import { Header } from '@/components/header';
 import { ReceiveForm } from '@/components/receive-form';
 import { SendForm } from '@/components/send-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PublicChatBox } from '@/components/public-chat-box';
 
 export default function CollabPage() {
   const router = useRouter();
@@ -30,7 +29,6 @@ export default function CollabPage() {
           </TabsList>
           <TabsContent value="share">
             <SendForm />
-            <PublicChatBox />
           </TabsContent>
           <TabsContent value="receive">
             <ReceiveForm />

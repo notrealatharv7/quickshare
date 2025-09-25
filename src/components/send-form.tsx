@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useTransition, type DragEvent, useRef, useEffect, useActionState } from 'react';
-import { Copy, Loader2, Send, UploadCloud, X, Wifi } from 'lucide-react';
+import { Copy, Loader2, Send, UploadCloud, X, Wifi, LogOut } from 'lucide-react';
 import { sendContent, createRealtimeSession, updateRealtimeContent } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,7 +24,6 @@ import { ChatBox } from './chat-box';
 
 const initialState = {
     id: undefined,
-    isRealtime: false,
     error: undefined,
 };
 
@@ -38,7 +37,6 @@ export function SendForm() {
   const { toast } = useToast();
 
   const [useRealtime, setUseRealtime] = useState(false);
-  const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null);
   const [isRealtimePending, startRealtimeTransition] = useTransition();
   
   const [activeRealtimeSession, setActiveRealtimeSession] = useState<string | null>(null);
@@ -94,18 +92,19 @@ export function SendForm() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    
     if (useRealtime) {
         startRealtimeTransition(async () => {
             const { sessionId } = await createRealtimeSession();
-            await updateRealtimeContent(sessionId, textContent);
+            // We don't need to update content right away, auto-save will handle it
             setActiveRealtimeSession(sessionId);
         });
     } else {
-      const formData = new FormData(event.currentTarget);
-      if (file) {
-        formData.append('file', file);
-      }
-      formAction(formData);
+        const formData = new FormData(event.currentTarget);
+        if (file) {
+            formData.set('file', file);
+        }
+        formAction(formData);
     }
   };
   
@@ -141,23 +140,26 @@ export function SendForm() {
           </div>
           <Textarea
             name="text"
-            placeholder="Paste your content here..."
+            placeholder="Start typing your real-time content here..."
             className="h-64 resize-none font-code mt-4"
             value={textContent}
             onChange={(e) => setTextContent(e.target.value)}
           />
           <div className="text-right text-sm text-muted-foreground mt-2 h-4">
-            {isAutoSaving && 'Saving...'}
+            {isAutoSaving ? 'Saving...' : textContent ? 'Saved' : ''}
           </div>
            <ChatBox sessionId={activeRealtimeSession} sender="user" />
-          <Button
-            variant="link"
-            className="px-0 mt-4"
-            onClick={handleReset}
-          >
-            End Session & Share Something Else
-          </Button>
         </CardContent>
+        <CardFooter>
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleReset}
+            >
+              <LogOut className="mr-2 h-5 w-5" />
+              End Session
+            </Button>
+        </CardFooter>
       </Card>
     );
   }
@@ -257,7 +259,6 @@ export function SendForm() {
           <div className="flex items-center space-x-2">
             <Switch
               id="realtime-mode"
-              name="useRealtime"
               checked={useRealtime}
               onCheckedChange={setUseRealtime}
               disabled={isFormPending || isRealtimePending}
@@ -274,7 +275,7 @@ export function SendForm() {
               <AlertDescription>{formState.error}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" size="lg" disabled={isFormPending || isRealtimePending}>
+          <Button type="submit" size="lg" disabled={isFormPending || isRealtimePending || (!textContent && !file && !useRealtime)}>
             {isFormPending || isRealtimePending ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
