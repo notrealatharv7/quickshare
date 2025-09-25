@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition, type DragEvent, useRef, useEffect, useActionState } from 'react';
+import { useState, useTransition, type DragEvent, useRef, useEffect } from 'react';
 import { Copy, Loader2, Send, UploadCloud, X, Wifi, LogOut } from 'lucide-react';
 import { sendContent, createRealtimeSession, updateRealtimeContent } from '@/app/actions';
 import { Button } from '@/components/ui/button';
@@ -20,15 +20,16 @@ import { Input } from './ui/input';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
-import { ChatBox } from './chat-box';
 
-const initialState = {
-    id: undefined,
-    error: undefined,
-};
+interface SendState {
+  id?: string;
+  error?: string;
+  isRealtime?: boolean;
+}
 
 export function SendForm() {
-  const [formState, formAction, isFormPending] = useActionState(sendContent, initialState);
+  const [state, setState] = useState<SendState>({});
+  const [isPending, startTransition] = useTransition();
   const [isAutoSaving, startAutoSaveTransition] = useTransition();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -104,15 +105,15 @@ export function SendForm() {
         if (file) {
             formData.set('file', file);
         }
-        formAction(formData);
+        startTransition(async () => {
+            const result = await sendContent(formData);
+            setState(result);
+        });
     }
   };
   
   const handleReset = () => {
-    if (formState) {
-        formState.id = undefined;
-        formState.error = undefined;
-    }
+    setState({});
     setUseRealtime(false);
     setActiveRealtimeSession(null);
     setTextContent('');
@@ -148,7 +149,6 @@ export function SendForm() {
           <div className="text-right text-sm text-muted-foreground mt-2 h-4">
             {isAutoSaving ? 'Saving...' : textContent ? 'Saved' : ''}
           </div>
-           <ChatBox sessionId={activeRealtimeSession} sender="user" />
         </CardContent>
         <CardFooter>
             <Button
@@ -164,7 +164,7 @@ export function SendForm() {
     );
   }
   
-  if (formState?.id) {
+  if (state?.id) {
     return (
       <Card className="shadow-lg">
         <CardHeader>
@@ -173,11 +173,11 @@ export function SendForm() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2">
-            <Input readOnly value={formState.id} className="font-mono text-lg h-12" />
+            <Input readOnly value={state.id} className="font-mono text-lg h-12" />
             <Button
               size="icon"
               className="h-12 w-12"
-              onClick={() => handleCopy(formState.id!)}
+              onClick={() => handleCopy(state.id!)}
             >
               <Copy className="h-6 w-6" />
             </Button>
@@ -244,7 +244,7 @@ export function SendForm() {
                   name="text"
                   placeholder="Paste your content here..."
                   className="h-64 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent font-code"
-                  disabled={isFormPending || isRealtimePending}
+                  disabled={isPending || isRealtimePending}
                   value={textContent}
                   onChange={(e) => {
                     setTextContent(e.target.value);
@@ -261,7 +261,7 @@ export function SendForm() {
               id="realtime-mode"
               checked={useRealtime}
               onCheckedChange={setUseRealtime}
-              disabled={isFormPending || isRealtimePending}
+              disabled={isPending || isRealtimePending}
             />
             <Label htmlFor="realtime-mode" className="flex items-center gap-2">
               <Wifi className="h-4 w-4" />
@@ -269,14 +269,14 @@ export function SendForm() {
             </Label>
           </div>
 
-          {formState?.error && (
+          {state?.error && (
             <Alert variant="destructive">
               <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{formState.error}</AlertDescription>
+              <AlertDescription>{state.error}</AlertDescription>
             </Alert>
           )}
-          <Button type="submit" size="lg" disabled={isFormPending || isRealtimePending || (!textContent && !file && !useRealtime)}>
-            {isFormPending || isRealtimePending ? (
+          <Button type="submit" size="lg" disabled={isPending || isRealtimePending || (!textContent && !file && !useRealtime)}>
+            {isPending || isRealtimePending ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <Send className="mr-2 h-5 w-5" />

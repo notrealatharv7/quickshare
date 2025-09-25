@@ -7,6 +7,7 @@ import { Header } from '@/components/header';
 import { ReceiveForm } from '@/components/receive-form';
 import { SendForm } from '@/components/send-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PublicChatBox } from '@/components/public-chat-box';
 
 export default function CollabPage() {
   const router = useRouter();
@@ -34,6 +35,7 @@ export default function CollabPage() {
             <ReceiveForm />
           </TabsContent>
         </Tabs>
+        <PublicChatBox />
       </main>
       <footer className="py-4 text-center text-sm text-muted-foreground">
         <p>MADE BY S1 BATCH FOR CEP.</p>
