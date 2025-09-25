@@ -30,12 +30,12 @@ export default function CollabPage() {
           </TabsList>
           <TabsContent value="share">
             <SendForm />
+            <PublicChatBox />
           </TabsContent>
           <TabsContent value="receive">
             <ReceiveForm />
           </TabsContent>
         </Tabs>
-        <PublicChatBox />
       </main>
       <footer className="py-4 text-center text-sm text-muted-foreground">
         <p>MADE BY S1 BATCH FOR CEP.</p>
