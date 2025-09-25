@@ -33,6 +33,8 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
       const session = sessionStore.get(realtimeSessionId)!;
       let contentToUpdate: SharedContent | undefined;
 
+      // During auto-save, only text is sent.
+      // When explicitly starting the session, a file might be present.
       if (file && file.size > 0) {
         const buffer = await file.arrayBuffer();
         contentToUpdate = {
@@ -46,14 +48,18 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
             type: 'text',
             content: text,
         };
+      } else if (!session.content) {
+        // If there's no text and no file, but a session exists,
+        // it means we are just establishing the session link without initial content.
+        // We still need to return the ID.
+         return {id: realtimeSessionId, isRealtime: true};
       }
       
       if (contentToUpdate) {
         session.content = contentToUpdate;
-        // If the other user hasn't joined, we are just updating the content that will be delivered.
-        // If they have joined, we are pushing the update.
+        // Mark as connected only when the first piece of content arrives
         if (session.status === 'pending') {
-             session.status = 'connected'; // Mark as connected since content is now available
+             session.status = 'connected'; 
         }
       }
 
@@ -61,7 +67,7 @@ export async function sendContent(prevState: SendState, formData: FormData): Pro
   }
 
 
-  if (!text && file.size === 0) {
+  if (!text && (!file || file.size === 0)) {
     return { error: 'Please provide text, or drop a file to share.' };
   }
 
@@ -113,10 +119,13 @@ export async function receiveContent(id: string): Promise<ReceiveResult> {
             sessionStore.delete(trimmedId);
             return { error: 'Content not found or has expired.' };
         }
-        if (session.status === 'connected' && session.content) {
+        if (session.content) {
+             if(session.status === 'pending') {
+                session.status = 'connected';
+            }
             return {data: session.content, messages: session.messages};
         }
-        // User has joined, mark as connected
+        // User has joined, mark as connected to allow chat
         if(session.status === 'pending') {
             session.status = 'connected';
         }
@@ -221,6 +230,7 @@ export async function createRealtimeSession(): Promise<CreateRealtimeSessionOutp
         status: 'pending',
         messages: [],
         expiresAt: Date.now() + EXPIRY_DURATION,
+        content: { type: 'text', content: ''} // Initialize with empty text content
     });
     return { sessionId };
 }

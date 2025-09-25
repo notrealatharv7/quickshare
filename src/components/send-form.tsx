@@ -57,7 +57,7 @@ export function SendForm() {
 
   // Auto-save logic for real-time text content
   useEffect(() => {
-    if (useRealtime && realtimeSessionId && textContent) {
+    if (useRealtime && realtimeSessionId) {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
@@ -134,7 +134,7 @@ export function SendForm() {
 
   useEffect(() => {
     if (formState?.id && !formState.isRealtime) {
-        handleReset();
+        // We don't reset here anymore to show the success message
     }
   }, [formState]);
 
@@ -248,7 +248,7 @@ export function SendForm() {
                 <Textarea
                   name="text"
                   placeholder="Paste your content here..."
-                  className="h-64 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+                  className="h-64 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent font-code"
                   disabled={isPending}
                   value={textContent}
                   onChange={(e) => {
@@ -309,7 +309,7 @@ export function SendForm() {
             ) : (
               <Send className="mr-2 h-5 w-5" />
             )}
-            Send
+            { useRealtime ? 'Start Session' : 'Send' }
           </Button>
         </CardFooter>
       </form>
